@@ -124,6 +124,11 @@ class TestResidueCLI(unittest.TestCase):
         self.path.write_bytes(b'not a package')
         self.run_check(2)
 
+    def test_oversized_xml_part_is_rejected_before_parsing(self):
+        oversized_body = 'x' * (8 * 1024 * 1024)
+        self.package({'word/document.xml': document(oversized_body)})
+        self.run_check(2)
+
     def test_duplicate_parts(self):
         self.package()
         with warnings.catch_warnings():

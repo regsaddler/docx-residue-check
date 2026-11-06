@@ -22,6 +22,9 @@ SENSITIVE = {
 REVISIONS = {'ins', 'del', 'moveFrom', 'moveTo', 'cellIns', 'cellDel', 'cellMerge',
              'moveFromRangeStart', 'moveFromRangeEnd', 'moveToRangeStart', 'moveToRangeEnd'}
 FALSE = {'0', 'false', 'off'}
+MAX_PACKAGE_PARTS = 10_000
+MAX_XML_PART_BYTES = 8 * 1024 * 1024
+MAX_INSPECTED_XML_BYTES = 32 * 1024 * 1024
 
 
 class _NoDTDTreeBuilder(ET.TreeBuilder):
@@ -38,12 +41,17 @@ def inspect(path, approved=None):
         raise ValueError('Approved metadata must map property keys to exact string values')
     findings = []
     with zipfile.ZipFile(path) as z:
-        names = z.namelist()
+        infos = z.infolist()
+        if len(infos) > MAX_PACKAGE_PARTS:
+            raise ValueError('Package contains too many parts')
+        names = [info.filename for info in infos]
         if len(names) != len(set(names)):
             raise ValueError('Duplicate package part names')
         if 'word/document.xml' not in names:
             raise ValueError('Missing Word document part')
-        for name in names:
+        inspected_xml_bytes = 0
+        for info in infos:
+            name = info.filename
             lower = name.lower()
             if lower.startswith('word/comments'):
                 findings.append({'part': name, 'kind': 'comment_part'})
@@ -51,7 +59,12 @@ def inspect(path, approved=None):
                 findings.append({'part': name, 'kind': 'additional_content_requires_review'})
             if not name.endswith('.xml') or not name.startswith(('word/', 'docProps/')):
                 continue
-            data = z.read(name)
+            if info.file_size > MAX_XML_PART_BYTES:
+                raise ValueError(f'XML package part exceeds inspection limit: {name}')
+            inspected_xml_bytes += info.file_size
+            if inspected_xml_bytes > MAX_INSPECTED_XML_BYTES:
+                raise ValueError('XML package parts exceed aggregate inspection limit')
+            data = z.read(info)
             # Do not expand document-supplied entities in this inspection helper.
             if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
                 raise ValueError(f'Unsupported XML declaration in {name}')

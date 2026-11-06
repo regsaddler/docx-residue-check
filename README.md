@@ -87,7 +87,9 @@ Word for Mac does not include Document Inspector. Its manual property editor
 does not provide the same inspection coverage; do not treat property review as
 a complete substitute. See [Microsoft's platform guidance](https://support.microsoft.com/en-us/office/inspect-document-b0088a7a-d482-4b87-b762-7c94c7c71e23).
 
-ZIP/XML memory and time limits are not enforced. This is a local review helper
+The checker rejects packages with more than 10,000 parts, individual inspected
+XML parts over 8 MiB, or more than 32 MiB of inspected XML. These are resource
+ceilings, not a malware sandbox. This remains a local review helper
 for documents you choose to inspect, not a hardened upload-processing service.
 
 ## Tests
